@@ -11,4 +11,4 @@ bun run docs:dev
 
 Markdownの整形は`bun run format:md`、整形の確認は`bun run format:md:check`を使います。
 
-`main`へのpush後、GitHub Actionsが確認とビルドを行い、`wiki.splatnet3.com`へ公開します。リポジトリのActions secretsには`CLOUDFLARE_API_TOKEN`と`CLOUDFLARE_ACCOUNT_ID`を設定します。手元から公開する場合は、同じ環境変数を設定して`bun run deploy:check`、`bun run deploy`を実行します。
+`master`へのpush後、GitHub Actionsが確認とビルドを行い、`wiki.splatnet3.com`へ公開します。リポジトリのActions secretsには`CLOUDFLARE_API_TOKEN`と`CLOUDFLARE_ACCOUNT_ID`を設定します。手元から公開する場合は、同じ環境変数を設定して`bun run deploy:check`、`bun run deploy`を実行します。
