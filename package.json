@@ -18,9 +18,9 @@
     "test": "bun test tests/*.test.ts",
     "format:md": "prettier --write '**/*.md'",
     "format:md:check": "prettier --check '**/*.md'",
-    "docs:dev": "vitepress dev . --host 127.0.0.1 --port 4173 --strictPort",
-    "docs:build": "vitepress build .",
-    "docs:preview": "vitepress preview .",
+    "docs:dev": "vitepress dev docs --host 127.0.0.1 --port 4173 --strictPort",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "deploy:check": "wrangler deploy --dry-run",
     "deploy": "wrangler deploy"
   },

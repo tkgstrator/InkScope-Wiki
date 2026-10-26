@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import MiniSearch from 'minisearch'
-import config from '../.vitepress/config.mts'
+import config from '../docs/.vitepress/config.mts'
 
 test('local search finds Japanese terms inside headings and prose', () => {
   const search = config.themeConfig?.search

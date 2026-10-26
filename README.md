@@ -1,6 +1,6 @@
 # サーモンラン解析Wiki
 
-VitePress 1.6.4で生成する静的サイトです。公開対象は`.vitepress/dist`だけです。リポジトリ内の解析証拠、PCAP、鍵ファイル、`.env`はサイトへコピーしません。
+VitePress 1.6.4で生成する静的サイトです。文書は`docs/`に置き、公開対象は`docs/.vitepress/dist`だけです。リポジトリ内の解析証拠、PCAP、鍵ファイル、`.env`はサイトへコピーしません。
 
 ```sh
 bun install --frozen-lockfile

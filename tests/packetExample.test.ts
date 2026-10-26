@@ -7,10 +7,10 @@ import {
   fieldsAtByte,
   packetExamples,
   plaintextFields,
-} from '../components/packetExample'
-import { packetCaptures } from '../components/packetCaptures'
-import { browseReply, browseReplyPlaintext, browseRequest, browseRequestPlaintext } from '../components/browseCaptures'
-import { protocolCaptures } from '../components/protocolCaptures'
+} from '../docs/components/packetExample'
+import { packetCaptures } from '../docs/components/packetCaptures'
+import { browseReply, browseReplyPlaintext, browseRequest, browseRequestPlaintext } from '../docs/components/browseCaptures'
+import { protocolCaptures } from '../docs/components/protocolCaptures'
 
 function readBits(bytes: Uint8Array, offset: number, width: number): number {
   let value = 0

@@ -7,7 +7,6 @@ export default withMermaid(defineConfig({
   title: 'サーモンラン解析Wiki',
   description: 'Splatoon 2とSplatoon 3のWAVEとLAN Play通信から分かったこと',
   cleanUrls: false,
-  srcExclude: ['README.md', 'AGENTS.md'],
   lastUpdated: false,
   appearance: true,
   vite: {

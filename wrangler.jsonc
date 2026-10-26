@@ -3,7 +3,7 @@
   "name": "splatnet3-wiki",
   "compatibility_date": "2026-10-25",
   "assets": {
-    "directory": "./.vitepress/dist",
+    "directory": "./docs/.vitepress/dist",
     "html_handling": "none",
     "not_found_handling": "404-page"
   },
