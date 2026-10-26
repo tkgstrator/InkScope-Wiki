@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "splatnet3-wiki",
+  "compatibility_date": "2026-10-25",
+  "assets": {
+    "directory": "./.vitepress/dist",
+    "html_handling": "none",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    {
+      "pattern": "wiki.splatnet3.com",
+      "custom_domain": true
+    }
+  ]
+}
