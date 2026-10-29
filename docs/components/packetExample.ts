@@ -1,6 +1,8 @@
 import { packetCaptures, type PacketCapture } from './packetCaptures'
 import { browseReply, browseReplyPlaintext, browseRequest, browseRequestPlaintext } from './browseCaptures'
 import { protocolCaptures } from './protocolCaptures'
+import { protocolResearchCaptures } from './protocolResearchCaptures'
+import { playerUnionDefinitions, playerUnionPayloadLayout, schemaPacketExamples } from './protocolSchemaExamples'
 
 export const directBankPayload = packetCaptures.directBank.payload
 
@@ -19,6 +21,7 @@ export interface PacketField {
 export const plaintextFields: PacketField[] = [
   { label: 'Message Length', startBit: 8, endBit: 24, encoding: 'be' },
   { label: 'Event Length', startBit: 104, endBit: 120, encoding: 'be' },
+  { label: 'Group ID', startBit: 136, endBit: 168, encoding: 'le' },
   { label: 'Type ID', startBit: 168, endBit: 200, encoding: 'le' },
   { label: 'Value + 1', startBit: 200, endBit: 204, encoding: 'bits' },
   { label: 'GameFrame', startBit: 204, endBit: 227, encoding: 'bits', codeName: true },
@@ -345,6 +348,9 @@ export interface PacketVariant {
   label: string
   bytes: Uint8Array
   fields: PacketField[]
+  provenance?: 'captured' | 'structural'
+  origin?: string
+  bitLength?: number
 }
 
 export interface PacketExample {
@@ -355,6 +361,7 @@ function eventFields(bodyBits: number, length: number, bodyFields: PacketField[]
   const result: PacketField[] = [
     { label: 'Message Length', startBit: 8, endBit: 24, encoding: 'be' },
     { label: 'Event Length', startBit: 104, endBit: 120, encoding: 'be' },
+    { label: 'Group ID', startBit: 136, endBit: 168, encoding: 'le' },
     { label: 'Type ID', startBit: 168, endBit: 200, encoding: 'le' },
   ]
   let cursor = 200
@@ -376,7 +383,7 @@ function eventFields(bodyBits: number, length: number, bodyFields: PacketField[]
   return result
 }
 
-function capturedEventVariant(capture: PacketCapture, bodyBits: number, bodyFields: PacketField[]): PacketVariant {
+function capturedEventVariant(capture: Pick<PacketCapture, 'payload'>, bodyBits: number, bodyFields: PacketField[]): PacketVariant {
   return {
     label: 'Plaintext',
     bytes: capture.payload,
@@ -388,9 +395,16 @@ function onlineCoopSettingVariant(): PacketVariant {
   const bodyFields: PacketField[] = [
     { label: 'Stage Resource', startBit: 200, endBit: 712, codeName: true },
     bitField('JobType', 712, 715, true),
+    bitField('UnlockedSeason', 715, 725, true),
+    bitField('WeaponId Count', 725, 728, true),
+    ...Array.from({ length: 4 }, (_, index) =>
+      bitField(`WeaponId[${index}]`, 728 + index * 16, 744 + index * 16, true)),
     bitField('Difficulty', 1064, 1075, true),
     ...Array.from({ length: 4 }, (_, index) =>
       bitField(`GameSeed[${index}]`, 1075 + index * 32, 1107 + index * 32, true)),
+    bitField('ScenarioAppVersion', 1559, 1591, true),
+    bitField('ScenarioCompetitionType', 1591, 1592, true),
+    bitField('ScenarioOriginalWeaponIdArray Count', 1592, 1595, true),
   ]
   return {
     label: 'Plaintext',
@@ -415,6 +429,73 @@ function xyz(start: number, name: string): PacketField[] {
   ]
 }
 
+function coopStatsFields(start: number): PacketField[] {
+  return [
+    bitField('IkuraNum', start, start + 14, true),
+    bitField('HeldGoldenIkuraNum', start + 14, start + 26, true),
+    bitField('Array A Count', start + 26, start + 29),
+    ...Array.from({ length: 4 }, (_, index) => bitField(`Array A [${index}]`, start + 29 + index * 12, start + 41 + index * 12)),
+    bitField('Array B Count', start + 77, start + 80),
+    ...Array.from({ length: 4 }, (_, index) => bitField(`Array B [${index}]`, start + 80 + index * 12, start + 92 + index * 12)),
+    bitField('Sequence', start + 128, start + 131, true),
+    unknownField(start + 131, start + 133),
+    bitField('GameFrame', start + 133, start + 153, true),
+    unknownField(start + 153, start + 179),
+    unknownField(start + 179, start + 189),
+  ]
+}
+
+export function playerNetUnionFields(bytes: Uint8Array, start: number): PacketField[] {
+  return playerUnionDefinitions.flatMap(definition => {
+    const first = start + definition.bodyStart
+    const payloadStart = first + definition.tagBits
+    const end = payloadStart + definition.budget
+    const select = bitField('Variant Select', first, payloadStart)
+    const tag = Number(fieldValue(bytes, select))
+    const variant = definition.variants[tag]
+    if (!variant) return [select, unknownField(payloadStart, end)]
+    const fields = [select]
+    let cursor = payloadStart
+    for (const [label, width] of playerUnionPayloadLayout(variant.name, variant.payloadBits)) {
+      fields.push(label === 'Unknown' ? unknownField(cursor, cursor + width) : bitField(label, cursor, cursor + width))
+      cursor += width
+    }
+    if (cursor < end) fields.push({ ...bitField('Padding', cursor, end), markStart: false })
+    return fields
+  })
+}
+
+function playerNetFields(bytes: Uint8Array, start: number): PacketField[] {
+  const squid = ((bytes[(start + 318) >> 3] >> ((start + 318) & 7)) & 1) === 0
+  return [
+    ...xyz(start, 'Position'),
+    bitField('Vector A Pitch Raw', start + 51, start + 61),
+    bitField('Vector A Yaw Raw', start + 61, start + 72),
+    bitField('Vector A Length Raw', start + 72, start + 84),
+    bitField('Vector B Pitch Raw', start + 84, start + 94),
+    bitField('Vector B Yaw Raw', start + 94, start + 105),
+    bitField('Vector B Length Raw', start + 105, start + 117),
+    bitField('Basis Z Pitch Raw', start + 117, start + 127),
+    bitField('Basis Z Yaw Raw', start + 127, start + 138),
+    bitField('Basis Y Input Pitch Raw', start + 138, start + 148),
+    bitField('Basis Y Input Yaw Raw', start + 148, start + 159),
+    bitField('Horizontal Angle Raw', start + 159, start + 172),
+    bitField('Direction Float Raw', start + 172, start + 184),
+    unknownField(start + 184, start + 280),
+    bitField('PlayerStepPaint State', start + 280, start + 283),
+    bitField('PlayerStepPaint Index + 1', start + 283, start + 286),
+    unknownField(start + 286, start + 304),
+    bitField('Current State Label + 1', start + 304, start + 309),
+    unknownField(start + 309, start + 318),
+    bitField('Squid/Human Select', start + 318, start + 319),
+    bitField(squid ? 'Squid State' : 'Human State', start + 319, start + (squid ? 322 : 329)),
+    ...(squid ? [{ ...bitField('Padding', start + 322, start + 329), markStart: false }] : []),
+    ...playerNetUnionFields(bytes, start),
+    unknownField(start + 463, start + 586),
+    { ...bitField('Padding', start + 586, bytes.length * 8), markStart: false },
+  ]
+}
+
 function p5Fields(capture: PacketCapture, group: number): PacketVariant {
   const sequence = group === 1104
   const bytes = capture.payload
@@ -430,25 +511,23 @@ function p5Fields(capture: PacketCapture, group: number): PacketVariant {
       bitField('Quota', 49, 55),
       bitField('Baseline A', 55, 65),
       bitField('Baseline B', 65, 75),
-      bitField('Flag', 75, 76),
-      unknownField(76, bytes.length * 8),
+      unknownField(75, 76),
+      bitField('Next Frame Length', 76, 88),
+      bitField('Next Group ID', 88, 120),
+      bitField('Next Present', 120, 121),
+      ...coopStatsFields(121),
+      bitField('Frame 3 Length', 310, 322),
+      bitField('Frame 3 Group ID', 322, 354),
+      bitField('Frame 3 Present', 354, 355),
+      ...playerNetFields(bytes, 355),
     )
   } else {
     fields.push(
-      unknownField(46, 60),
-      unknownField(60, 72),
-      bitField('Array A Count', 72, 75),
-    )
-    for (let index = 0; index < 4; index++) {
-      fields.push(bitField(`Array A [${index}]`, 75 + index * 12, 87 + index * 12))
-    }
-    fields.push(bitField('Array B Count', 123, 126))
-    for (let index = 0; index < 4; index++) {
-      fields.push(bitField(`Array B [${index}]`, 126 + index * 12, 138 + index * 12))
-    }
-    fields.push(
-      unknownField(174, 235),
-      unknownField(235, bytes.length * 8),
+      ...coopStatsFields(46),
+      bitField('Next Frame Length', 235, 247),
+      bitField('Next Group ID', 247, 279),
+      bitField('Next Present', 279, 280),
+      ...playerNetFields(bytes, 280),
     )
   }
   return { label: `Group ${group}`, bytes, fields }
@@ -457,8 +536,59 @@ function p5Fields(capture: PacketCapture, group: number): PacketVariant {
 function capturedVariants(capture: PacketCapture, bodyBits: number, bodyFields: PacketField[]): PacketVariant[] {
   return [capturedEventVariant(capture, bodyBits, bodyFields)]
 }
+
+function enemySpawnVariant(): PacketVariant {
+  const capture = packetCaptures.enemySpawn
+  const count = Number(fieldValue(capture.payload, bitField('Array Count', 341, 345)))
+  if (count > 10) throw new Error('Invalid recorded enemy-spawn array count')
+  return capturedEventVariant(capture, 481, [
+    ...xyz(200, 'Spawn'),
+    bitField('Spawn Direction Raw', 251, 272),
+    bitField('Predicted Slot', 272, 276),
+    bitField('Spawn Frame Raw', 276, 296),
+    bitField('SalmonId', 328, 333, true),
+    bitField('Pool Selector + 1', 333, 341),
+    bitField('Array Count', 341, 345),
+    ...Array.from({ length: count }, (_, index) => bitField('Unknown', 345 + index * 32, 377 + index * 32)),
+    ...(count < 10 ? [{ ...bitField('Padding', 345 + count * 32, 665), markStart: false }] : []),
+  ])
+}
+
+function playerNetVariant(capture: PacketCapture, group: number): PacketVariant {
+  const variant = p5Fields(capture, group)
+  return {
+    ...variant,
+    label: `Player Group ${group === 1107 ? 200000 : 210000}`,
+    provenance: 'captured',
+    origin: 'Protocolペイロード · PlayerNetState本文はbit 280から',
+    fields: variant.fields.flatMap(field => {
+      if (field.label === 'Human State') return [
+        ...Array.from({ length: 3 }, (_, index) => bitField('Human Counter Positive', field.startBit + index, field.startBit + index + 1)),
+        unknownField(field.startBit + 3, field.startBit + 4),
+        unknownField(field.startBit + 4, field.startBit + 5),
+        ...Array.from({ length: 3 }, (_, index) => bitField('Human Counter Positive', field.startBit + 5 + index, field.startBit + 6 + index)),
+        unknownField(field.startBit + 8, field.endBit),
+      ]
+      if (field.label === 'Squid State') return [
+        bitField('Squid Flag', field.startBit, field.startBit + 1),
+        unknownField(field.startBit + 1, field.endBit),
+      ]
+      return [field]
+    }),
+  }
+}
 // Browseは保存したUDP/35000ペイロード、Pia通知は復号後のProtocolペイロード。
 export const packetExamples = {
+  coopRescued: { variants: [capturedEventVariant(protocolResearchCaptures.coopRescued, 4,
+    [bitField('Rescuer Index + 1', 200, 204)])] },
+  goldenAssist: { variants: [capturedEventVariant(protocolResearchCaptures.goldenAssist, 4,
+    [bitField('Assist Mask', 200, 204)])] },
+  enemyState: { variants: [
+    capturedEventVariant(protocolResearchCaptures.enemyState, 26,
+      [bitField('State + 1', 200, 206), bitField('Transition Frame', 206, 226)]),
+    { ...capturedEventVariant(protocolResearchCaptures.enemyDie, 26,
+      [bitField('State + 1', 200, 206), bitField('Transition Frame', 206, 226)]), label: 'Die' },
+  ] },
   browseRequest: { variants: [browseRequestVariant(), browseRequestPlaintextVariant()] },
   browseReply: { variants: [browseReplyVariant(), browseReplyPlaintextVariant()] },
   net: { variants: netVariants() },
@@ -470,8 +600,7 @@ export const packetExamples = {
   onlineCoopSetting: { variants: [
     onlineCoopSettingVariant(),
   ] },
-  enemySpawn: { variants: capturedVariants(packetCaptures.enemySpawn, 481,
-    [...xyz(200, 'Spawn'), bitField('SalmonId', 328, 333, true)]) },
+  enemySpawn: { variants: [enemySpawnVariant()] },
   itemSpawn: { variants: capturedVariants(packetCaptures.itemSpawn, 252,
     [...xyz(200, 'Spawn'), bitField('Transform Value', 336, 352), bitField('Link Byte', 385, 393),
       bitField('Link Nibble', 393, 397), bitField('Link Bits', 397, 400), ...xyz(401, 'Other')]) },
@@ -495,5 +624,10 @@ export const packetExamples = {
     p5Fields(packetCaptures.playerStateHost, 1107),
     p5Fields(packetCaptures.playerStateClient, 1108),
   ] },
+  playerNetState: { variants: [
+    playerNetVariant(packetCaptures.playerStateHost, 1107),
+    playerNetVariant(packetCaptures.playerStateClient, 1108),
+  ] },
+  ...schemaPacketExamples,
 } satisfies Record<string, PacketExample>
 export type PacketExampleKind = keyof typeof packetExamples

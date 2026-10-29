@@ -40,7 +40,7 @@ function selectByte(index: number): void {
 </script>
 
 <template>
-  <div class="packet-example">
+  <div class="packet-example" :data-packet-kind="props.kind ?? 'directBank'">
     <div class="packet-example-bar">
       <div v-if="example.variants.length > 1" class="packet-example-toggle" role="group" aria-label="Data view">
         <button
@@ -51,9 +51,14 @@ function selectByte(index: number): void {
           @click="variantIndex = index"
         >{{ option.label }}</button>
       </div>
-      <span class="packet-example-meta">{{ bytes.length }} B</span>
+      <span class="packet-example-scope">
+        {{ variant.provenance === 'structural' ? '構造例' : '実データ' }}<template v-if="variant.origin"> · {{ variant.origin }}</template>
+      </span>
+      <span class="packet-example-meta">{{ bytes.length }} B<template v-if="variant.bitLength !== undefined"> · {{ variant.bitLength }} ビット</template></span>
     </div>
+    <p v-if="variant.bitLength === 0" class="packet-example-empty">この型の本文は0ビットです。</p>
     <HexView
+      v-else
       :bytes="bytes"
       :selected-index="selectedIndex"
       :field-start-indices="fieldStartIndices"
@@ -90,10 +95,21 @@ function selectByte(index: number): void {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  flex-wrap: wrap;
   padding: 0.3rem 0.4rem;
   border-bottom: 1px solid var(--vp-c-divider);
   color: var(--vp-c-text-2);
   font-size: 0.78rem;
+}
+.packet-example-scope {
+  flex: 1 1 12rem;
+  min-width: 0;
+  line-height: 1.4;
+}
+.packet-example-empty {
+  padding: 0.75rem 0.4rem;
+  margin: 0;
+  color: var(--vp-c-text-2);
 }
 .packet-example-toggle {
   display: inline-flex;
@@ -104,6 +120,7 @@ function selectByte(index: number): void {
   display: inline-flex;
   gap: 0.75rem;
   margin-left: auto;
+  white-space: nowrap;
 }
 .packet-example-toggle button {
   border: 0;

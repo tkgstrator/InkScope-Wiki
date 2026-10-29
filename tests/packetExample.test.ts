@@ -6,6 +6,7 @@ import {
   fieldValue,
   fieldsAtByte,
   packetExamples,
+  playerNetUnionFields,
   plaintextFields,
 } from '../docs/components/packetExample'
 import { packetCaptures } from '../docs/components/packetCaptures'
@@ -301,8 +302,21 @@ test('captured OnlineCoopSetting payload matches the saved authenticated record'
   expect(new DataView(bytes.buffer).getUint32(21, true)).toBe(0x9a1e036d)
   expect(new TextDecoder().decode(bytes.slice(25, 38))).toBe('Cop_Shakedent')
   expect(readBits(bytes, 712, 3)).toBe(1)
+  expect(readBits(bytes, 715, 10) - 1).toBe(1)
+  expect(fields.find((field) => field.label === 'UnlockedSeason')?.startBit).toBe(715)
+  expect(readBits(bytes, 725, 3)).toBe(4)
+  expect(Array.from({ length: 4 }, (_, index) => readBits(bytes, 728 + index * 16, 16) - 3))
+    .toEqual([-1, -1, -1, -1])
+  expect(fields.find((field) => field.label === 'WeaponId Count')?.startBit).toBe(725)
+  expect(fields.filter((field) => /^WeaponId\[\d\]$/.test(field.label)).length).toBe(4)
   expect(readBits(bytes, 1064, 11)).toBe(151)
   expect(fields.find((field) => field.label === 'Difficulty')?.startBit).toBe(1064)
+  expect(readBits(bytes, 1559, 32)).toBe(0x000b0300)
+  expect(fields.find((field) => field.label === 'ScenarioAppVersion')?.startBit).toBe(1559)
+  expect(readBits(bytes, 1591, 1)).toBe(0)
+  expect(readBits(bytes, 1592, 3)).toBe(0)
+  expect(fields.find((field) => field.label === 'ScenarioCompetitionType')?.startBit).toBe(1591)
+  expect(fields.find((field) => field.label === 'ScenarioOriginalWeaponIdArray Count')?.startBit).toBe(1592)
   expect(fields.find((field) => field.label === 'GameFrame')?.startBit).toBe(1659)
   expect(fields.find((field) => field.label === 'LifeNumber')?.startBit).toBe(1682)
   expect(fields.at(-1)?.endBit).toBe(1688)
@@ -317,26 +331,114 @@ test('P5 examples use payload-relative framing and preserve array boundaries', (
   expect(readBits(sequence.bytes, 45, 1)).toBe(1)
   expect(readBits(sequence.bytes, 46, 3)).toBe(0)
   expect(readBits(sequence.bytes, 49, 6)).toBe(4)
-  expect(sequence.fields.at(-1)?.startBit).toBe(76)
+  expect(readBits(sequence.bytes, 75, 1)).toBe(0)
+  expect(readBits(sequence.bytes, 76, 12)).toBe(222)
+  expect(readBits(sequence.bytes, 88, 32)).toBe(1107)
+  expect(readBits(sequence.bytes, 120, 1)).toBe(1)
+  expect(readBits(sequence.bytes, 310, 12)).toBe(619)
+  expect(readBits(sequence.bytes, 322, 32)).toBe(200000)
+  expect(readBits(sequence.bytes, 354, 1)).toBe(1)
+  expect(sequence.fields.find((field) => field.label === 'Frame 3 Length')?.startBit).toBe(310)
+  expect(sequence.fields.find((field) => field.label === 'Frame 3 Group ID')?.startBit).toBe(322)
+  expect(sequence.fields.find((field) => field.label === 'Frame 3 Present')?.startBit).toBe(354)
+  expect(readBits(sequence.bytes, 941, 3)).toBe(0)
+  expect(sequence.fields.filter((field) => field.label.startsWith('Position ') && field.startBit >= 355 && field.endBit <= 406)
+    .map((field) => [field.startBit, field.endBit])).toEqual([[355, 372], [372, 389], [389, 406]])
+  expect(sequence.fields.find((field) => field.label === 'Horizontal Angle Raw')?.startBit).toBe(514)
+  expect(sequence.fields.find((field) => field.label === 'Squid/Human Select')?.startBit).toBe(673)
+  expect(sequence.fields.at(-1)?.startBit).toBe(941)
   expect(sequence.fields.at(-1)?.endBit).toBe(118 * 8)
-  for (const [variant, group] of [[packetExamples.playerState.variants[0], 1107],
-    [packetExamples.playerState.variants[1], 1108]] as const) {
+  for (const [variant, group, nextGroup] of [[packetExamples.playerState.variants[0], 1107, 200000],
+    [packetExamples.playerState.variants[1], 1108, 210000]] as const) {
     expect(variant.bytes.length).toBe(109)
     expect(readBits(variant.bytes, 1, 12)).toBe(222)
     expect(readBits(variant.bytes, 13, 32)).toBe(group)
     expect(readBits(variant.bytes, 45, 1)).toBe(1)
     expect(readBits(variant.bytes, 72, 3)).toBe(4)
     expect(readBits(variant.bytes, 123, 3)).toBe(4)
-    expect(variant.fields.at(-1)?.startBit).toBe(235)
+    expect(readBits(variant.bytes, 235, 12)).toBe(619)
+    expect(readBits(variant.bytes, 247, 32)).toBe(nextGroup)
+    expect(readBits(variant.bytes, 279, 1)).toBe(1)
+    expect(variant.fields.find((field) => field.label === 'Next Frame Length')?.startBit).toBe(235)
+    expect(variant.fields.find((field) => field.label === 'Next Group ID')?.startBit).toBe(247)
+    expect(variant.fields.find((field) => field.label === 'Next Present')?.startBit).toBe(279)
+    expect(readBits(variant.bytes, 866, 6)).toBe(0)
+    expect(variant.fields.filter((field) => field.label.startsWith('Position ') && field.startBit >= 280 && field.endBit <= 331)
+      .map((field) => [field.startBit, field.endBit])).toEqual([[280, 297], [297, 314], [314, 331]])
+    expect(variant.fields.find((field) => field.label === 'Horizontal Angle Raw')?.startBit).toBe(439)
+    expect(variant.fields.find((field) => field.label === 'Squid/Human Select')?.startBit).toBe(598)
+    expect(variant.fields.at(-1)?.startBit).toBe(866)
     expect(variant.fields.at(-1)?.endBit).toBe(109 * 8)
+  }
+})
+
+test('player current-reference label keeps its five-bit bias and both payload origins', () => {
+  for (const [variants, start] of [
+    [packetExamples.playerState.variants, 280],
+    [packetExamples.playerNetState.variants, 280],
+    [packetExamples.sequence.variants, 355],
+  ] as const) {
+    for (const variant of variants) {
+      const field = variant.fields.find((f) => f.label === 'Current State Label + 1')
+      expect(field?.startBit).toBe(start + 304)
+      expect(field?.endBit).toBe(start + 309)
+      expect(fieldValue(variant.bytes, field!)).toBe(BigInt(readBits(variant.bytes, start + 304, 5)))
+      const fields = variant.fields.filter((f) => f.startBit < start + 318 && f.endBit > start + 286)
+      expect(fields.map((f) => [f.label, f.startBit, f.endBit])).toEqual([
+        ['Unknown', start + 286, start + 304],
+        ['Current State Label + 1', start + 304, start + 309],
+        ['Unknown', start + 309, start + 318],
+      ])
+    }
+  }
+})
+
+test('player union layouts distinguish supported payloads, fixed padding and unsupported tags', () => {
+  const registries = [
+    { start: 329, width: 3, budget: 108, sizes: [108, 1, 5, 64, 0] },
+    { start: 440, width: 4, budget: 16, sizes: [0, 1, 8, 15, 13, 5, 11, 2, 13, 9, 6, 14, 10, 16, 1] },
+    { start: 460, width: 2, budget: 1, sizes: [0, 1, 1] },
+  ]
+  for (const registry of registries) {
+    for (let tag = 0; tag <= registry.sizes.length; tag++) {
+      const bytes = new Uint8Array(74)
+      for (let bit = 0; bit < registry.width; bit++) {
+        if (tag & (1 << bit)) bytes[(registry.start + bit) >> 3] |= 1 << ((registry.start + bit) & 7)
+      }
+      const end = registry.start + registry.width + registry.budget
+      const fields = playerNetUnionFields(bytes, 0).filter((f) => f.startBit >= registry.start && f.endBit <= end)
+      expect(fields[0]).toMatchObject({ label: 'Variant Select', startBit: registry.start, endBit: registry.start + registry.width })
+      expect(fields.at(-1)?.endBit).toBe(end)
+      expect(fields.every((f) => f.endBit > f.startBit)).toBe(true)
+      for (let index = 1; index < fields.length; index++) expect(fields[index].startBit).toBe(fields[index - 1].endBit)
+      const payload = fields.filter((f) => f.label !== 'Variant Select' && f.label !== 'Padding')
+      const payloadBits = payload.reduce((n, f) => n + f.endBit - f.startBit, 0)
+      const paddingBits = fields.filter((f) => f.label === 'Padding').reduce((n, f) => n + f.endBit - f.startBit, 0)
+      if (tag === registry.sizes.length) {
+        expect(payload.map((f) => [f.startBit, f.endBit])).toEqual([[registry.start + registry.width, end]])
+        expect(paddingBits).toBe(0)
+      } else {
+        expect(payloadBits).toBe(registry.sizes[tag])
+        expect(paddingBits).toBe(registry.budget - registry.sizes[tag])
+        if (registry.start === 329 && tag === 0) expect(payload.map((f) => [f.label, f.startBit, f.endBit])).toEqual([
+          ['Unknown', 332, 333], ['Unknown', 333, 357], ['Unknown', 357, 381],
+          ['Jump Vector Pitch Raw', 381, 391], ['Jump Vector Yaw Raw', 391, 402], ['Jump Vector Length Raw', 402, 414],
+          ['Unknown', 414, 439], ['Unknown', 439, 440],
+        ])
+        if (registry.start === 329 && tag === 3) expect(payload.map((f) => f.endBit - f.startBit)).toEqual([17, 17, 17, 10, 3])
+      }
+    }
   }
 })
 
 test('unaligned unknown fields exclude adjacent bits', () => {
   const variant = packetExamples.enemySpawn.variants.at(-1)!
-  const unknown = variant.fields.find((field) => field.label === 'Unknown' && field.startBit === 251)!
-  expect([unknown.startBit, unknown.endBit]).toEqual([251, 328])
-  expect(fieldDisplayHex(variant.bytes, unknown)).toMatch(/^0x[0-9a-f]{20}$/)
+  const unknown = variant.fields.find((field) => field.label === 'Unknown' && field.startBit === 345)!
+  expect([unknown.startBit, unknown.endBit]).toEqual([345, 377])
+  expect(fieldDisplayHex(variant.bytes, unknown)).toMatch(/^0x[0-9a-f]{8}$/)
+  const marked = variant.bytes.slice()
+  for (const bit of [unknown.startBit - 1, unknown.endBit]) marked[bit >> 3] |= 1 << (bit & 7)
+  expect(fieldDisplayHex(marked, unknown)).toBe(`0x${readBits(variant.bytes, 345, 32).toString(16).padStart(8, '0')}`)
 })
 
 test('captured item spawn links to the selected player response', () => {

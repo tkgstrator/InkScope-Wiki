@@ -147,6 +147,7 @@ export default withMermaid(defineConfig({
             items: [
               { text: 'CoopSequenceNetState', link: '/packet/index.html#wave-state' },
               { text: 'CoopSeqPlayerNetState', link: '/packet/index.html#players' },
+              { text: 'PlayerNetState', link: '/packet/index.html#player-net-state' },
             ],
           },
           {
@@ -155,11 +156,19 @@ export default withMermaid(defineConfig({
             items: [
               { text: 'OnlineCoopSetting', link: '/packet/index.html#online-coop-setting' },
               { text: 'CoopEnemySpawnNetEvent', link: '/packet/index.html#enemy-spawn-event' },
+              { text: 'CoopEnemyStateEvent', link: '/packet/index.html#enemy-state-event' },
+              { text: 'AttackEvent', link: '/packet/index.html#attack-event' },
+              { text: 'ColPaintEvent', link: '/packet/index.html#col-paint-event' },
+              { text: 'ObjPaintEvent', link: '/packet/index.html#obj-paint-event' },
               { text: 'CoopItemSpawnEvent', link: '/packet/index.html#item-spawn-event' },
               { text: 'CoopItemResponseGetByPlayerEvent', link: '/packet/index.html#player-get-event' },
               { text: 'CoopItemResponseGetByEnemyEvent', link: '/packet/index.html#enemy-get-event' },
               { text: 'CoopItemGoldenIkuraShotEvent', link: '/packet/index.html#golden-ikura-shot-event' },
               { text: 'CoopItemGoldenIkuraDirectBankEvent', link: '/packet/index.html#golden-ikura-direct-bank-event' },
+              { text: 'CoopSeqPlayerGoldenIkuraAssistEvent', link: '/packet/index.html#golden-ikura-assist-event' },
+              { text: 'PlayerNetEvent::CoopRescued', link: '/packet/index.html#coop-rescued-event' },
+              { text: 'PlayerNetEvent::TroubleDie', link: '/packet/index.html#trouble-die-event' },
+              { text: 'PlayerNetEvent::Revival', link: '/packet/index.html#revival-event' },
             ],
           },
           {
@@ -167,6 +176,8 @@ export default withMermaid(defineConfig({
             link: '/protocol/index.html#broadcast-reliable-protocol',
             items: [
               { text: 'PrivateSetting', link: '/protocol/index.html#private-setting' },
+              { text: 'StationInfo', link: '/packet/index.html#station-info' },
+              { text: 'VersusUserSettingNetState', link: '/packet/versus-user-setting.html' },
             ],
           },
           { text: 'SessionProtocol', link: '/protocol/index.html#session-protocol' },
