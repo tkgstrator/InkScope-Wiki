@@ -41,11 +41,24 @@ Pia 6.32.3の`Protocol` IDです。
 | `17` | Reckoning 1D Protocol                                       |
 | `18` | Reckoning 3D Protocol                                       |
 
-正常参加とゲーム中の保存データで本文を確認したIDは`1, 3, 5, 8, 11, 13`です。
+本文の構造を確認したIDは`1, 3, 5, 8, 11, 13`です。
+
+一覧の名前はPia側の`Protocol`登録名です。`BrowseRequest`と`BrowseReply`は部屋探索用のUDP 35000通信で、このID表には含めません。本文の構造を確認したIDと、意味を特定したフィールドは次のように分かれます。
+
+| `Protocol` ID | 確認した本文 | 読めた値 | 残る`Unknown` |
+| --: | --- | --- | --- |
+| `1` | 接続開始、参加者情報、応答などの`Net`種別 | `Sequence`、`Generation`と応答の対応 | 参加成立の最終条件、各種別の未解読欄 |
+| `3` | 往復時刻の要求`Type=0`と応答`Type=1` | `OriginTick`を使うRTT計算 | 通信遅延とゲーム内動作の関係 |
+| `5` | `1104`、`1107`、`1108`、`200000`、`210000`の状態フレーム | WAVE進行、ノルマ、17ビット三軸、配列AのWAVE納品数・配列Bの累計納品数 | 三軸のシーン上の意味、未解読欄、別形式のフレーム |
+| `8` | 型付きイベントと、別形式の190バイト本文 | 型IDと一部のイベント本文のビット配置 | 未同定の型ID、別形式の内容、個人の得点や撃破数 |
+| `11` | 設定更新と、それ以外の可変長本文 | `PrivateSetting`の`StageResource`と難易度 | シナリオ有効時の`RandomSeedAry`値、設定以外の本文と結果データとの接続 |
+| `13` | `Session 0/2/5/6` | 参加者・ステーション情報と応答値 | 試合終了やクリアを示す独立した条件 |
+
+`0`は本文のないPiaチャンクです。残りのIDは登録名まで確認していますが、本文の構造は`Unknown`です。`Session 6`は試合前にも試合後にもあるため、それだけでクリアを示す値とは扱いません。
 
 ## `LanBrowseProcessJob` {#discovery}
 
-以下の要求と応答は同じ探索で保存したUDP 35000ペイロードです。Hex Viewのビット位置は表示中のバイト列の先頭から数えます。
+以下は`BrowseRequest`と`BrowseReply`のUDP 35000ペイロードです。Hex Viewのビット位置は表示中のバイト列の先頭から数えます。
 
 ### `BrowseRequest` {#browse-request}
 
@@ -75,7 +88,7 @@ Pia 6.32.3の`Protocol` IDです。
 
 ## `BroadcastReliableProtocol` {#broadcast-reliable-protocol}
 
-`Flags`の`0x00`では10枠の制御データ、`0x07`では可変長データを確認しています。`Sequence`と`Acknowledgment`は双方向の進行値です。
+`Flags`の`0x00`では10枠の制御データ、`0x07`では可変長データを確認しています。`Sequence`と`Acknowledgment`は双方向の進行値です。試合中や終了後に届く未分類の本文もあり、すべてを`PrivateSetting`として解釈することはできません。
 
 <PacketHexExample kind="broadcastReliable" />
 
@@ -83,11 +96,11 @@ Pia 6.32.3の`Protocol` IDです。
 
 [Type](/protocol/type.html#protocol-11)に、設定で確認した型を載せています。
 
-待機中にホストが変えた設定は、`PrivateSetting`としてクライアントへ届きます。`CommonPrivateSettingNetState`はステージの識別名、`CoopPrivateSettingNetState`はキケン度に対応する値を運びます。保存した通信では、それぞれ単独の更新と、両方を含む更新を確認しています。ステージの`Cop_*`名と資料上のIDの対応は[内部ID](/ids/index.html)にまとめています。確認した形式では設定値`q`と画面のキケン度の関係を`(q - 1) / 5`％と推定しています。照合した範囲は主に5～200％です。それを超える値への適用は未確認です。
+待機中にホストが変えた設定は、`PrivateSetting`としてクライアントへ届きます。`CommonPrivateSettingNetState`はステージの識別名、`CoopPrivateSettingNetState`はキケン度に対応する値を運びます。これらは単独でも、一つの更新にまとめても送れます。ステージの`Cop_*`名と資料上のIDの対応は[内部ID](/ids/index.html)にまとめています。設定値`q`と画面のキケン度には`(q - 1) / 5`％という関係が推定されますが、全域での対応は`Unknown`です。
 
 <PacketHexExample kind="privateSetting" />
 
-`PrivateSetting`には選択シナリオの`RandomSeedAry`を運ぶ形式もあります。`CoopPrivateSettingNetState`を含む保存更新では、シナリオが無効で、配列の件数は0でした。開始前に届く`OnlineCoopSetting`の`GameSeed`とは区別します。詳しくは[Splatoon 3の`GameSeed`](/prng/game-seed/sp3.html)で説明します。
+`PrivateSetting`には選択シナリオの`RandomSeedAry`を運ぶ形式もあります。これは開始前に届く`OnlineCoopSetting`の`GameSeed`とは別の欄です。詳しくは[Splatoon 3の`GameSeed`](/prng/game-seed/sp3.html)で説明します。
 
 ## `SessionProtocol` {#session-protocol}
 

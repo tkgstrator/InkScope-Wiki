@@ -5,13 +5,15 @@ description: Splatoon 3のWAVEで計算できる内容と、まだ確定でき�
 
 # WAVE 情報
 
-各WAVEのほとんどすべての情報は、マッチメイキング時に初期化される`GameSeed`で先読みすることができます。
+`GameSeed`から各WAVEの候補を計算できます。実際のイベント、潮位、ブキ、スペシャルを先読みするには、ステージや難易度のほか、ゲームが使ったシーンの値と実行時設定も照合します。
 
 ## ブキとスペシャル {#weapons-specials}
 
 プライベートバイトではスペシャルを内部プレイヤー番号へ割り当て、その後に支給ブキの表を作る処理があります。[ブキのID](/ids/weapon-id.html)と[スペシャルのID](/ids/special-id.html)は別表にまとめています。
 
 次は`JobType` 1の計算です。スペシャル候補とブキプールはゲーム内で使われる順に渡します。ブキ候補の配列は指定された開始位置から有効件数分を読み、末尾に達したら先頭へ戻ります。その順の値を`main_ids`、`current_main`、`source_main`に渡します。コードの`effective_internal_value`は[InternalValue](/internal-value.html)を使い、シーン側に別値があればそちらを使います。候補の先頭4件から`SpecialId`を取得します。`get_u32`は上のイベント計算と同じ関数です。
+
+高分岐では、第1候補を入力順で追加してシャッフルし、先頭から最大2件を取り出します。残りの末尾へ第2候補を追加してもう一度シャッフルし、再び先頭から最大2件を取り出した後、選んだ候補をシャッフルします。候補を逆順にしたり末尾から取り出したりすると、乱数の消費数が同じでも割当結果が変わります。
 
 ```rust
 use ocean_calc::{SeedWords, derive};
@@ -38,20 +40,18 @@ fn draw_specials(
         shuffle(&mut state, &mut work);
         work
     } else {
-        let mut work: Vec<_> = prior.iter().copied().take(9).rev().collect();
+        let mut work: Vec<_> = prior.iter().copied().take(9).collect();
         shuffle(&mut state, &mut work);
         let mut chosen = Vec::new();
-        for _ in 0..2 {
-            if let Some(id) = work.pop() { chosen.push(id); }
-        }
+        let count = work.len().min(2);
+        chosen.extend(work.drain(..count));
         for &id in v6 {
             if work.len() == 9 { break; }
-            work.insert(0, id);
+            work.push(id);
         }
         shuffle(&mut state, &mut work);
-        for _ in 0..2 {
-            if let Some(id) = work.pop() { chosen.push(id); }
-        }
+        let count = work.len().min(2);
+        chosen.extend(work.drain(..count));
         shuffle(&mut state, &mut chosen);
         chosen
     };
@@ -105,7 +105,17 @@ fn draw_private_weapons(
 }
 ```
 
-ブキには`draw_specials`が返した乱数状態を引き継ぎます。`remap_specials`は実行時に再配置が有効な場合だけ使います。実効候補・ブキプールは保存パケットだけでは確定せず、内部プレイヤー番号と実際の参加者の対応も未確認です。
+ブキには`draw_specials`が返した乱数状態を引き継ぎます。`remap_specials`は実行時に再配置が有効な場合だけ使います。通信上の設定値だけでは実効候補・ブキプールを確定できません。内部プレイヤー番号と参加者は、後述する通常のサーモンランの参加順と対応付けられます。
+
+### 参加人数と割り当て
+
+スペシャルは内部index 0～3の4件を選び、ブキは5行×4枠の表を作ります。参加人数はスペシャル再配置の成立条件に使われます。再配置フラグが有効な場合、主ブキringの対応件数が有効参加者数以上なら再配置できます。同じ主ブキIDが複数あれば、同じ`SpecialId`が複数枠へ写る場合もあります。`UnlockedSeason`はブキ候補のSeason上限に使われます。[`OnlineCoopSetting`](/packet/index.html#online-coop-setting)にはその値が含まれますが、先読みにはシーンで実際に採用された値が必要です。
+
+`JobType=1`の装備getterは、当該WAVEのブキとスペシャルを同じ内部indexで参照します。スペシャルの再配置は配列の内容を変更し、getterが使うindexは変更しません。
+
+通常のサーモンランでは、有効なステーションの論理順にユーザー設定をシーンへ取り込み、そのうち参加対象の順に内部プレイヤー番号を付けます。[ステーションの識別値とユーザー設定](/protocol/type.html#protocol-11)を同じ部屋の情報として照合し、全員の設定取得とシーンへの追加・採用が成功することが、この対応の条件です。ステーションの論理indexをそのまま内部プレイヤー番号には使いません。
+
+再配置前のスペシャルを個人へ割り当てるには、再配置が無効で、後から装備が上書きされないことも必要です。再配置自体は乱数を消費しませんが、各indexの`SpecialId`は変わります。ブキの乱数状態が同じであることだけでは、スペシャルの割り当てまで一致するとは限りません。
 
 ## オオモノシャケと湧き方向 {#boss-spawns}
 
@@ -247,6 +257,19 @@ fn choose_generic_spot_index(state: &mut [u32; 4], count: u32) -> Option<u32> {
 `advance_direction`はスケジューラの呼び出しごとに一度だけ判定します。
 
 通常の種類候補は`SalmonId` 4～14です。上限に達した候補は乱数だけ進め、周期的に指定される`SalmonId` 15はこの種類選択を通りません。
+
+### 最初のオオモノの種類
+
+`JobType=1`で`EventId`が`0`・`5`・`6`の場合、WAVEの最初の通常出現候補は、次の条件がそろえば`SalmonId`を計算できます。参加人数は生成したイベントをWAVEへ適用する処理にも使います。
+
+- シーンが採用した`GameSeed`、ステージ、`Difficulty`、有効参加人数を使い、`MatchMode=11`と通常のステージ初期化経路を通ります。
+- イベント・潮位への実行時の強制変更や後段の上書きがなく、通常のオオモノ出現予定を使います。
+- 最初のスケジューラ呼び出しが経過tick `0`で予定を処理し、それ以前の出現や共有乱数の消費がありません。
+- 現存数と予約数がともに`0`で、周期的なキンシャケ選択の条件と、初期状態の種類候補判定が分かっています。
+
+霧では周期の入力が別途必要です。その値や種類ごとの判定条件を確定できなければ、最初の種類も`Unknown`です。ここで求める値は出現候補の種類で、出現地点や実際の生成成功までは示しません。
+
+2件目以降も続けて求めるには、処理済みの予定と共有乱数の状態に加え、実際のスケジューラ時刻、出現・予約・撃破による現存数の変化、周期判定、出現地点の選択処理を引き継ぎます。最初の種類だけを求めた状態から、後続の実際の湧きを同じ条件で確定することはできません。
 
 ## 参考資料 {#references}
 
