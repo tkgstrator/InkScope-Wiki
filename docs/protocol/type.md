@@ -9,7 +9,7 @@ import PacketHexExample from '../components/PacketHexExample.vue'
 
 # Type
 
-Splatoon 3のELFとLAN Play通信で確認した型です。`Coop`で始まるイベント型は54種類登録され、このうち25種類を`Protocol` 8で確認しています。登録名があることと、通信上の本文を読めることは別です。
+Splatoon 3のELFとLAN Play通信で確認した型の一覧です。`Coop`で始まるイベント型は54種類登録されており、そのうち25種類を`Protocol` 8で確認しています。本文のビット配置まで特定した型は[Packet](/packet/index.html)で詳しく解説します。
 
 ## `UnreliableProtocol` {#protocol-5}
 
@@ -19,21 +19,12 @@ Splatoon 3のELFとLAN Play通信で確認した型です。`Coop`で始まる�
 | `1107 / 1108` | [`CoopSeqPlayerNetState`](/packet/index.html#players) | `0x312b6d7f` |
 | `200000 / 210000` | [`PlayerNetState`](/packet/index.html#player-net-state) | `0x2d9946d6` |
 
-`200000 / 210000`の明示的な状態フレームは619ビットで、`PlayerNetState`の本文586ビットを含みます。プレイヤーactorの通信設定はこの型を`Unreliable`として登録し、生成した同じ本文を符号化します。`Group ID`はステーションringの論理位置から作られ、装備配列のindexや画面上のプレイヤー番号を直接示すものではありません。[Packet](/packet/index.html#player-net-state)にフィールド位置を示します。
-
-`PlayerNetState`の本文bit 51–83と84–116には、方向21ビットと大きさ12ビットからなる二つのベクトルがあります。本文bit 117–137と138–158には、受信側で回転基底の再構成に使う二つの圧縮方向ベクトルがあります。こちらは各21ビットで、上下角10ビットと水平角11ビットに分かれます。
-
-本文後半には、移動などのサブ状態5種類、`InkAction`の動作状態15種類、追加の動作状態3種類を選ぶ領域があります。選択された型ごとに本文の長さが変わりますが、未使用部分をゼロで埋め、次の領域の開始位置を固定します。`Jump`の本文108ビットには、二つの真偽値、24・24・25ビットの数値、方向と大きさを送る33ビットのベクトルがあります。[Packet](/packet/index.html#player-net-state)に選択値と型の対応、各分岐のHex Viewを示します。
-
-`PlayerNetState`の本文bit 318はサブ状態の選択値です。`0`なら`PlayerNetState_Squid`、`1`なら`PlayerNetState_Human`の復号器を選びます。また、3Dベクトルの水平成分から作った角度を符号1ビットと大きさ12ビットで送り、受信側で水平ベクトルへ戻します。別のfloat値は-1～1の範囲から12ビットに量子化します。この方向は受信側で補間してプレイヤーの状態へ戻します。身体の向きと射撃方向との対応は`Unknown`です。サブ状態はイカ形式の3ビットと7ビットのゼロ埋め、またはヒト形式の10ビットを使い、後続位置を固定します。
-
-`PlayerNetState`の本文bit 280–282と283–285は、足元の塗りに関わる`PlayerStepPaint`の状態値と選択indexです。後者は通信値から`1`を引きます。生存状態のフラグは未確定です。
-
-`CoopSeqPlayerNetState`の正常な本文は189ビットです。配列の件数が4未満でも未使用枠を埋めます。先頭に個人の`IkuraNum`と保持中の金イクラ数、二つの配列に各参加者のWAVE内と累計の金イクラ納品数を持ちます。
+- `CoopSeqPlayerNetState`（本文189ビット）: 先頭に個人の`IkuraNum`と保持中の金イクラ数、続く2つの配列に全参加者のWAVE内・累計金イクラ納品数が入ります（件数が4未満でも未使用枠はゼロ埋め）。
+- `PlayerNetState`（本文586ビット、明示フレーム619ビット）: `Group ID`はステーションringの論理位置から決まります。本文には位置（17ビット×3）、方向・大きさベクトル（33ビット×2）、回転基底ベクトル（21ビット×2）、水平角（13ビット）と付随float（12ビット）、`PlayerDamage`残量（10ビット）、`PlayerArmor`残量（13ビット）、足元の塗り状態（`PlayerStepPaint`、bit 280–285）、ヒト・イカ選択（bit 318）、および移動サブ状態（5種）・`InkAction`（15種）・補助動作（3種）の固定長領域が含まれます。詳細は[`PlayerNetState`](/packet/index.html#player-net-state)を参照してください。
 
 ## `BroadcastEventProtocol` {#protocol-8}
 
-Coopプレイ中の認証済み`Protocol` 8で確認した59種類です。型IDとELFの登録名が一致するものを載せています。本文のフィールドまで確認した型は[Packet](/packet/index.html)で説明します。
+Coopプレイ中の`Protocol` 8で確認した59種類のイベント型です。
 
 | 型ID | 型名 |
 | --: | --- |
@@ -97,21 +88,21 @@ Coopプレイ中の認証済み`Protocol` 8で確認した59種類です。型ID
 | `0xe3f0eb9a` | [`ObjPaintEvent`](/packet/index.html#obj-paint-event) |
 | `0x1c8decf9` | `TripleTornadoBind` |
 
-[`ColPaintEvent`](/packet/index.html#col-paint-event)と[`ObjPaintEvent`](/packet/index.html#obj-paint-event)は、位置、二つのサイズ値と方向、塗り定義、対象参照を持ちます。受信側は対象を検証して塗り処理へ渡します。具体的な形や面積は塗り定義と投影先にも依存します。[`CoopEnemyStateEvent`](/packet/index.html#enemy-state-event)は状態コードと切替が有効になるフレームを送ります。状態`1`は`State::Die`で、ヘビの死亡状態から送る経路があります。
+主なイベントの概要は以下のとおりです（各フィールドの詳細はリンク先を参照）。
 
-[`AttackEvent`](/packet/index.html#attack-event)内の`DamageReason`は、通常のID範囲でメイン・サブ・スペシャルのブキ情報を選ぶ区分とIDを持ちます。[`CoopSeqPlayerGoldenIkuraAssistEvent`](/packet/index.html#golden-ikura-assist-event)はアシスト対象の参加者を4ビットマスクで送ります。
-
-`PlayerNetEvent::BulletSpShockSonar`はホップソナーに対応します。`PlayerNetEvent::ChariotStart`と`BulletSpChariotCannon`はカニタンク、`BulletSpTripleTornadoMother`と`BulletSpTripleTornadoGuide`、`TripleTornadoBind`はトリプルトルネードに対応します。`PlayerNetEvent::PerformSpecial`と併せて使用したスペシャルの種類を調べられます。これらは装備済み`SpecialId`や残使用回数を直接示す欄ではありません。
-
-`PlayerNetEvent::BulletCharger`、`PlayerNetEvent::BulletSlosher`、`PlayerNetEvent::BulletManeuver`は、それぞれチャージャー、スロッシャー、マニューバー系の射撃通知です。型IDからブキの系統を調べられますが、同系統内の具体的な`WeaponId`は確定できません。
+- [`ColPaintEvent`](/packet/index.html#col-paint-event)・[`ObjPaintEvent`](/packet/index.html#obj-paint-event): 位置、2つのサイズ値・方向、塗り定義、対象参照を送ります。
+- [`CoopEnemyStateEvent`](/packet/index.html#enemy-state-event): 敵の状態コードと切替フレームを送ります（状態`1`は`State::Die`）。
+- [`AttackEvent`](/packet/index.html#attack-event): `DamageReason`にメイン・サブ・スペシャルの区分とIDを含みます。
+- [`CoopSeqPlayerGoldenIkuraAssistEvent`](/packet/index.html#golden-ikura-assist-event): 金イクラ納品のアシスト対象者を4ビットマスクで通知します。
+- 射撃・スペシャル発動通知: `BulletCharger`・`BulletSlosher`・`BulletManeuver`はブキ系統、`BulletSpShockSonar`（ホップソナー）、`ChariotStart`・`BulletSpChariotCannon`（カニタンク）、`BulletSpTripleTornadoMother`・`BulletSpTripleTornadoGuide`・`TripleTornadoBind`（トリプルトルネード）は使用したスペシャルの種類を示します（[装備と使用通知](/packet/index.html#equipment-events)参照）。
 
 ### `PlayerNetEvent::CoopRoundSetup` {#coop-round-setup}
 
-`PlayerNetEvent::CoopRoundSetup`の型付き本文は2ビットです。この本文にブキIDは入りません。以下は型付き本文だけの構造例です。
+型付き本文は2ビットで、ブキIDは含まれません。以下は型付き本文のみの構造例です。
 
 <PacketHexExample kind="coopRoundSetup" />
 
-型付きイベントの形式と長さは一致しますが、ELFの登録名へ結び付けられていない型IDもあります。型名と本文の意味はいずれも`Unknown`です。
+なお、以下の型IDはイベント形式と一致するものの、ELFの登録名と対応付けられていません。
 
 |         型ID | 型名      |
 | -----------: | --------- |
@@ -121,34 +112,26 @@ Coopプレイ中の認証済み`Protocol` 8で確認した59種類です。型ID
 
 ## `BroadcastReliableProtocol` {#protocol-11}
 
-このProtocolには`PrivateSetting`と`VersusSetting`の設定同期があります。`PrivateSetting`には次の型が定義されています。
+`PrivateSetting`（ハンドラー番号`13`）と`VersusSetting`（ハンドラー番号`1`）、およびステーション別の[`StationInfo`](/packet/index.html#station-info)（ハンドラー番号`論理index + 2`）で設定を同期します。本文では型IDを毎回送らず、各要素の有無（1ビット）に続けて存在する要素の本文を並べます。
 
-| ELF登録ID | 型名 |
-| --: | --- |
-| `0xede242dc` | [`CommonPrivateSettingNetState`](/protocol/index.html#private-setting) |
-| `0x39ee8bf7` | [`CoopPrivateSettingNetState`](/protocol/index.html#private-setting) |
-| `0x00c6916a` | `VersusMasterPreSeletTeamNetState` |
-| `0x4ec5cfa6` | `VersusPrivateSettingNetState` |
+| ハンドラー | ELF登録ID | 型名 | 要素位置 |
+| --- | --: | --- | --: |
+| `PrivateSetting` (`13`) | `0x00c6916a` | `VersusMasterPreSeletTeamNetState` | 2番目 |
+| `PrivateSetting` (`13`) | `0xede242dc` | [`CommonPrivateSettingNetState`](/protocol/index.html#private-setting) | 3番目 |
+| `PrivateSetting` (`13`) | `0x4ec5cfa6` | `VersusPrivateSettingNetState` | 4番目 |
+| `PrivateSetting` (`13`) | `0x39ee8bf7` | [`CoopPrivateSettingNetState`](/protocol/index.html#private-setting) | 5番目 |
+| `VersusSetting` (`1`) | `0xc056fc0f` | `StationIdArrayNetState` | 5番目 |
+| `StationInfo` (`index + 2`) | `0x9a54b478` | [`VersusUserSettingNetState`](/packet/versus-user-setting.html) | 7番目 |
+| `StationInfo` (`index + 2`) | `0xf8164b9a` | [`CoopUserInfoNetState`](/packet/index.html#coop-user-info) | 8番目 |
+| `StationInfo` (`index + 2`) | `0x10951074` | [`RomInfoNetState`](/packet/index.html#rom-info) | 11番目 |
 
-`PrivateSetting`のハンドラー番号は`13`です。`Reliable`の要素は`is_valid`、`VersusMasterPreSeletTeamNetState`、`CommonPrivateSettingNetState`、`VersusPrivateSettingNetState`、`CoopPrivateSettingNetState`、`blocking_dsi`の順に並びます。
+`PrivateSetting`の`Reliable`要素は、`is_valid`、`VersusMasterPreSeletTeamNetState`（本文34ビット）、`CommonPrivateSettingNetState`、`VersusPrivateSettingNetState`（本文77ビット）、`CoopPrivateSettingNetState`、`blocking_dsi`の計6件です。`VersusPrivateSettingNetState`（bit 43–76）と`VersusMasterPreSeletTeamNetState`（bit 0–33）はどちらも最大10件の配列を持ち、4ビットの要素数の後に3ビット値（`通信値 - 1`、未使用枠はゼロ埋め）が10枠続きます。
 
-`VersusPrivateSettingNetState`には最大10件の配列があり、型付き本文の先頭を起点とするLSB0のbit 43–46が4ビットの要素数、bit 47から各要素の3ビット値が続きます。各値は通信値から`1`を引いて復元します。未使用枠は0で埋め、正常な本文長は77ビットです。前方の`VersusMasterPreSeletTeamNetState`は、同じ件数・要素・未使用枠の形式で34ビットです。
+`StationIdArrayNetState`は最大10件のステーション識別情報配列（814ビット: 4ビットの要素数＋`64ビット値 + 16ビット値 + 1ビットフラグ`×10枠、未使用枠はゼロ埋め）と後続欄（20・1・64・32ビット、用途は`Unknown`）からなる計931ビットの本文です。
 
-`VersusSetting`のハンドラー番号は`1`です。`Reliable`の要素が定義順に10件あり、5番目が`StationIdArrayNetState`です。本文では型IDを毎回送る代わりに、各要素の有無を1ビットで送り、存在する要素の本文を続けます。
+通常のサーモンランでは、有効なステーション（識別値が非ゼロかつフラグ有効）の論理順と`Session 5`のステーション識別値を64ビット値・16ビット値の組で照合し、全員の[`VersusUserSettingNetState`](/packet/versus-user-setting.html)がシーンへ採用されれば、入室時点で表示名と内部プレイヤー番号（個人集計・装備のindex）を対応付けられます。
 
-|    ELF登録ID | 型名                     | ハンドラー内の位置 |
-| -----------: | ------------------------ | -----------------: |
-| `0xc056fc0f` | `StationIdArrayNetState` |              5番目 |
-
-`StationIdArrayNetState`は最大10件のステーション識別情報を持ちます。要素数は4ビット、各要素は64ビット値・16ビット値・1ビットのフラグです。要素は配列の論理順で読み書きし、未使用枠は0で埋めます。この配列からローカルのステーション識別情報と一致する要素の論理位置を取得し、ネットワーク管理オブジェクトへ保存する処理があります。論理位置と個人の装備配列の添字は、常に同じ値になるわけではありません。
-
-サーモンランのシーン構築では、ステーション識別値が非ゼロでフラグが有効な枠に、参加枠の値`0`を選びます。対応するユーザー設定の取得と配列への追加が成功すると、その枠をシーンの参加者配列へ移します。`VersusPrivateSettingNetState`の配列を使う分岐とは別です。
-
-通常のサーモンランでは、この有効なステーションの論理順と`Session 5`のステーション識別値の順序を照合し、全員のユーザー設定がそろえば、名前と内部プレイヤー番号を条件付きで対応付けられます。シーンに採用した設定から名前をコピーし、参加対象だけを順に数えた番号がactorの識別と個人集計・装備のindexへつながります。設定取得や追加に失敗すると枠が省かれるため、全員の取得・追加・採用が成功することが条件です。
-
-照合には64ビット値と16ビット値の組を順序も含めて使い、64ビット値の精度を保ちます。IPアドレスや表示名の一致だけでは対応を決めません。部屋の識別値・順序・有効フラグが変わったら以前の対応を破棄し、新しい部屋で得た設定を照合します。入室時にこれらがそろえば、`OnlineCoopSetting`やWAVE開始を待たずに名前を対応付けられます。
-
-次の構造例は、順に`VersusMasterPreSeletTeamNetState`・`VersusPrivateSettingNetState`・`StationIdArrayNetState`の本文です。`StationIdArrayNetState`は814ビットの配列に20・1・64・32ビットの欄が続き、正常な本文長は931ビットです。後続欄の意味は`Unknown`です。
+以下は`VersusMasterPreSeletTeamNetState`、`VersusPrivateSettingNetState`、`StationIdArrayNetState`の型付き本文の構造例です。
 
 <PacketHexExample kind="versusPreSelect" />
 
@@ -156,23 +139,9 @@ Coopプレイ中の認証済み`Protocol` 8で確認した59種類です。型ID
 
 <PacketHexExample kind="stationIdArray" />
 
-ステーションごとの`StationInfo`は、ステーションの論理indexに`2`を加えたハンドラー番号を使います。その通信設定では、`VersusUserSettingNetState`を`Reliable`の7番目、`CoopUserInfoNetState`を8番目の要素に定義しています。[全要素の順序](/packet/index.html#station-info)を示しています。
+## Protocol ID未確認の登録型 {#registered-only}
 
-`VersusUserSettingNetState`の`GameStatus.CoopSmell`は、参加者ごとに合算するEX WAVE抽選の入力です。[3ビット欄の位置と抽選式](/packet/versus-user-setting.html#ex-wave)を説明しています。
-
-| ELF登録ID | 型名 | `Reliable`内の位置 |
-| --: | --- | --: |
-| `0x9a54b478` | [`VersusUserSettingNetState`](/packet/versus-user-setting.html) | 7番目 |
-| `0xf8164b9a` | `CoopUserInfoNetState` | 8番目 |
-| `0x10951074` | [`RomInfoNetState`](/packet/index.html#rom-info) | 11番目 |
-
-`VersusUserSettingNetState`では、`ModelType`の値`0`～`3`がイカ・タコとF/Mモデルの区分、`Hair`と`Eyebrow`が髪型と眉の選択、`CoopSkin`が作業着の選択に関わります。ネームプレートには二つ名・背景・3枠のバッジがあります。[各フィールドと列挙値](/packet/versus-user-setting.html)を示しています。
-
-`CoopUserInfoNetState`の本文は整数値だけの17ビットです。送信時に`10`を加え、受信時に`10`を引きます。値の意味と、`WeaponId`や`SpecialId`との対応は`Unknown`です。
-
-## Protocol ID未確認の型 {#registered-only}
-
-以下のイベント型はELFへの登録を確認しました。
+ELFへの登録を確認したものの、通信上の`Protocol`番号が未確定のイベント型です。
 
 |       登録ID | 型名                                                  |
 | -----------: | ----------------------------------------------------- |
@@ -211,19 +180,15 @@ Coopプレイ中の認証済み`Protocol` 8で確認した59種類です。型ID
 | `0x5c9e7c22` | `OnlineDbgCoopRecordRequest`                          |
 | `0x2970fcdb` | `OnlineVersusSetting`                                 |
 
-`OnlineVersusSetting`には最大10件の`Protocoled_SplTeam`配列があります。要素数は4ビットで、各要素は値に`1`を加えた3ビット値です。未使用枠は0で埋め、受信時には各要素の通信値から`1`を引きます。この型の登録と符号化処理は確認していますが、通信上の通知形式との結合は未確認です。
-
-以下は型付き本文、または明示した配列部分だけの構造例です。外側の`Protocol`番号やパケット形式を仮定していません。
-
-`OnlineVersusSetting`の次の表示は、本文bit 555–588の配列部分だけです。型全体は753～783ビットで、この34ビットが全体の本文長ではありません。表示内のbit 0が本文bit 555に当たります。
+`OnlineVersusSetting`（本文全体は753～783ビット）のbit 555–588には、最大10件の`Protocoled_SplTeam`配列（4ビットの要素数＋3ビット値×10枠、`通信値 - 1`）があります。以下はその34ビット部分の構造例です（表示内のbit 0が本文bit 555）。
 
 <PacketHexExample kind="onlineVersusRoles" />
 
 ### `CoopEnemyFallDeathEvent`
 
-`CoopEnemyFallDeathEvent` (`0x61e20cf7`)の型付き本文は0ビットです。敵の高さが基準値から一定量下回ったときに通知し、受信側は対象actorの現在の世代を取得できる場合に照合し、取得できない場合の処理経路もあります。通常の残り値による死亡判定とは別の経路です。
-
-`CoopEnemySakePillarDieAirEvent` (`0x43e14cdb`)は1ビットの真偽値を持ち、ハシラ側の受信処理はこの値を保存して死亡状態へ移します。真偽値のゲーム内での意味は`Unknown`です。`CoopEnemySakelienGeyserDeathEvent` (`0xf25c3ca7`)の本文は0ビットで、この敵固有の死亡フラグを同期する経路があります。
+- `CoopEnemyFallDeathEvent` (`0x61e20cf7`): 本文0ビット。敵の高度が基準値を下回った際に通知します（通常のHPゼロによる死亡判定とは別経路）。
+- `CoopEnemySakePillarDieAirEvent` (`0x43e14cdb`): 本文1ビット（真偽値の意味は`Unknown`）。ハシラが受信すると値を保存して死亡状態へ遷移します。
+- `CoopEnemySakelienGeyserDeathEvent` (`0xf25c3ca7`): 本文0ビット。間欠泉固有の死亡フラグを同期します。
 
 <PacketHexExample kind="fallDeath" />
 
@@ -233,23 +198,19 @@ Coopプレイ中の認証済み`Protocol` 8で確認した59種類です。型ID
 
 ### `DestroyEvent`
 
-`DestroyEvent` (`0xecc856e7`)の型付き本文は4ビットで、真偽値1ビットと値3ビットから成ります。actorに属するイベントとして生成・受信し、世代を確認する経路があります。3ビット欄の意味と、サーモンランの通常の撃破との対応は`Unknown`です。
+`DestroyEvent` (`0xecc856e7`)の型付き本文は4ビット（真偽値1ビット＋値3ビット）です。actorの世代を確認して処理されますが、3ビット値の意味や通常の撃破集計との関係は`Unknown`です。
 
 <PacketHexExample kind="destroy" />
 
 ### `CoopSeqStatsEvent`
 
-`CoopSeqStatsEvent` (`0x6474f87a`)の正常な型付き本文は751ビットです。先頭3ビットが外側配列の件数で、最大4件を収めます。各要素は12ビット値、内側配列の件数5ビット、最大17件の10ビット値から成り、187ビットです。両配列とも未使用枠をゼロで埋めるため、件数が少なくても本文長は変わりません。
-
-型付き本文のbit `3 + 187 × i`から要素`i`の12ビット値、bit `15 + 187 × i`から内側の件数、bit `20 + 187 × i + 10 × j`から内側要素`j`を読みます。各値のゲーム内での意味と、個人別討伐数への対応は`Unknown`です。通常のゲーム中にこの通知を送る条件と外側の`Protocol`番号も未確定です。
+`CoopSeqStatsEvent` (`0x6474f87a`)の型付き本文は751ビットです。先頭3ビットが外側配列の要素数（最大4件）で、各要素（187ビット）は12ビット値（bit `3 + 187 × i`）、内側配列の要素数5ビット（bit `15 + 187 × i`、最大17件）、10ビット値×17枠（bit `20 + 187 × i + 10 × j`）で構成されます。未使用枠はゼロ埋めです。各値の意味や送信条件は`Unknown`です。
 
 <PacketHexExample kind="coopSeqStats" />
 
 ### `CoopWeaponId`
 
-`CoopWeaponId`は`WeaponId`に`3`を加えた16ビット値を送り、受信時に`3`を引きます。この型を要素とする配列は、要素数を3ビットで送り、存在する各要素を続ける経路があります。配列の容量は4件です。この型を運ぶ通信上のGroup IDと、各プレイヤーの装備欄との対応は`Unknown`です。
-
-[`OnlineCoopSetting`](/packet/index.html#online-coop-setting)のブキID配列は別の符号化経路です。IDへの加算値は同じですが、通信上の位置はそのページで説明します。
+`CoopWeaponId`は`WeaponId + 3`の16ビット値です。これを要素とする最大4件の配列は、3ビットの要素数に続けて各要素を送ります（[`OnlineCoopSetting`](/packet/index.html#online-coop-setting)のブキID配列とは別経路）。通信上の`Group ID`やプレイヤー装備欄との対応は`Unknown`です。
 
 <PacketHexExample kind="coopWeaponId" />
 

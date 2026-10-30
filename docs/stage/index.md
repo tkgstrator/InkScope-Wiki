@@ -5,9 +5,9 @@ description: Splatoon 3のステージ別の潮位重みとイベント候補
 
 # ステージ情報
 
-Splatoon 3のステージ別の`Water`と`BanEvent`です。
+Splatoon 3のステージ別の潮位重み（`Water`）と除外イベント（`BanEvent`）です。
 
-`Water`は干潮・通常・満潮の順です。共通の重みは全難易度で`1 / 3 / 1`です。「ステージ」はそのステージの`Water`を使い、「共通」は共通の`Water`を使います。`BanEvent`の指定がない欄は「—」とします。
+`Water`は干潮・通常・満潮の重みです。共通設定の重みは全難易度で`1 / 3 / 1`です。「参照元」が「ステージ」の場合はステージ固有の`Water`、「共通」の場合は共通の`Water`を使います。`BanEvent`の指定がない場合は「—」と表記します。
 
 ## Regular {#regular-stages}
 

@@ -5,16 +5,16 @@ description: LAN Playで使う鍵の取得元と計算方法
 
 # Key
 
-`BrowseRequest`はクライアントの部屋探しパケット（type 0）、`BrowseReply`はホストの応答（type 1）です。`GameKey`はELFから計算し、`GameSeed`とは別です。
+LAN Playの暗号化・認証に使う値と導出鍵の一覧です。`BrowseRequest`はクライアントが部屋を探すパケット（type 0）、`BrowseReply`はホストが返す部屋情報（type 1）です。`GameKey`はELFから計算する共通鍵で、`GameSeed`とは別です。
 
 ## 値と鍵の一覧
 
-`+`はバイト列なら連結、整数なら加算です。
+表中の`+`は、バイト列では連結、整数では加算を表します。
 
-| 名前 | 長さ | 計算方法 |
+| 名前 | 長さ（ビット） | 取得元・計算方法 |
 | --- | --: | --- |
 | `MatchmakeKey` | `64` | `BrowseRequest[5:13]` |
-| `GameKey` | `128` | ELFの初期状態・定数表 |
+| `GameKey` | `128` | ELFの初期状態・定数表から計算 |
 | `Challenge` | `128` | `BrowseRequest[37:53]` |
 | `SearchKey` | `128` | `AES-128-ECB(GameKey, Challenge)` |
 | `ServerRandom` | `128` | `BrowseReply[572:588]` |
@@ -24,7 +24,7 @@ description: LAN Playで使う鍵の取得元と計算方法
 | `ChangedParameter` | `256` | `SessionParameter[0:31] + byte((SessionParameter[31] + 1) % 256)` |
 | `PiaKey` | `128` | `HMAC-SHA256(GameKey, ChangedParameter)[:16]` |
 
-実線は導出、点線は使用先です。
+実線は鍵の導出、点線は使用先を示します。
 
 ```mermaid
 flowchart TB
@@ -47,7 +47,7 @@ flowchart TB
 
 ## `GameKey`の計算
 
-ELFの`0x150836c..0x150838c`にある命令から初期状態を、`0x50b8314`から64語の定数表を読みます。アドレスはELF仮想アドレスです。次のRust風擬似コードで`GameKey`を計算します。
+ELF仮想アドレス`0x150836c..0x150838c`の命令から初期状態を、`0x50b8314`から64要素の定数表を読み取り、以下の手順で`GameKey`を計算します。
 
 ```rust
 fn read_key_material(elf: &[u8]) -> ([u32; 4], [u32; 64]) {

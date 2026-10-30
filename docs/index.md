@@ -8,7 +8,7 @@ title: サーモンラン解析Wiki
   <header class="wiki-home-intro">
     <p class="wiki-home-eyebrow">サーモンランの解析資料</p>
     <h1>サーモンラン解析Wiki</h1>
-    <p class="wiki-home-lead">Splatoon 2・3のWAVEの計算と、Splatoon 3のLAN Play通信をまとめています。</p>
+    <p class="wiki-home-lead">Splatoon 2・3のWAVE計算と、Splatoon 3のLAN Play通信をまとめています。</p>
     <div class="wiki-home-versions">
       <p>解析対象バージョン</p>
       <dl>

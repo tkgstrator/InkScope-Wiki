@@ -5,11 +5,11 @@ description: Splatoon 3のオオモノシャケ出現用WaveSeedの計算
 
 # Splatoon 3の`WaveSeed`
 
-SP3では、オオモノシャケの出現に使うPRNGを、WAVE開始時点の共有乱数状態から計算した`WaveSeed`で初期化します。最初の共有乱数状態には、シーンの`RandomSeed0`～`RandomSeed3`で構成される128ビットの[`GameSeed`](/prng/game-seed/sp3.html)が入ります。
+SP3では、WAVE開始時点の共有乱数状態から計算した`WaveSeed`でオオモノシャケ出現用のPRNGを初期化します。初期の共有乱数状態には、シーンの`RandomSeed0`～`RandomSeed3`で構成される128ビットの[`GameSeed`](/prng/game-seed/sp3.html)が入ります。
 
 ## 計算方法
 
-次のRustコードは、WAVE開始時点の共有乱数状態から`WaveSeed`を計算します。
+WAVE開始時点の共有乱数状態から`WaveSeed`を計算するコードです。
 
 ```rust
 fn wave_seeds(shared_state: [u32; 4]) -> [u32; 2] {
@@ -23,11 +23,11 @@ fn wave_seeds(shared_state: [u32; 4]) -> [u32; 2] {
 }
 ```
 
-返値は順にオオモノシャケの出現予定時刻用、種類・湧き方向用です。`s1`と`s2`はこのWAVEの計算式には直接入りませんが、次のWAVEの共有乱数状態に影響します。`WaveSeed`は32ビットで、初期化後のPRNG状態は128ビットです。種類・湧き方向に使う状態は、展開後に1回進めてから使います。
+返り値は順に、オオモノシャケの出現予定時刻用、種類・湧き方向用の32ビット`WaveSeed`です（初期化後のPRNG状態は128ビット）。`s1`と`s2`はそのWAVEの計算式には直接入りませんが、次WAVEの共有乱数状態に影響します。種類・湧き方向用のPRNG状態は、初期化後に1回進めてから使います。
 
 ## WAVEごとの変化
 
-通常のWAVE 1終了時には、共有乱数状態を5回進めた結果を`CoopSeqRoundFinishEvent`で共有します。その状態からWAVE 2の`WaveSeed`を計算します。WAVE 2を通常終了して3へ進むときは、WAVE 2終了時の共有乱数状態を6回進めます。
+通常のWAVE 1終了時には、共有乱数状態を5回進めた値を`CoopSeqRoundFinishEvent`で共有し、その状態からWAVE 2の`WaveSeed`を計算します。WAVE 2からWAVE 3へ進む際は、WAVE 2終了時の共有乱数状態を6回進めます。
 
 ```rust
 fn get_u32(state: &mut [u32; 4]) -> u32 {
@@ -59,9 +59,9 @@ fn regular_wave_seeds(mut game_seed: [u32; 4]) -> [[u32; 2]; 3] {
 }
 ```
 
-通常経路では、WAVE中のオオモノシャケの抽選は別のPRNGを進めるため、上のように`GameSeed`からWAVE 2・3の状態を計算できます。`CoopSeqRoundFinishEvent`の状態を使う場合は、計算後の状態をそのまま使います。
+通常経路では、WAVE中のオオモノシャケ抽選は別のPRNGを進めるため、`GameSeed`からWAVE 2・3の状態を計算できます。`CoopSeqRoundFinishEvent`の通知値を使う場合は、その状態をそのまま渡します。
 
-イベントと潮位は`GameSeed`から計算します。計算方法は[SP3の`GameSeed`](/prng/game-seed/sp3.html#イベントと潮位の計算)にあります。
+イベントと潮位の計算方法は[SP3の`GameSeed`](/prng/game-seed/sp3.html#イベントと潮位の計算)を参照してください。
 
 ## 参考資料
 

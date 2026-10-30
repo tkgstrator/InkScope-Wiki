@@ -11,17 +11,15 @@ WAVEのイベントや潮位など、複数の抽選の起点になります。�
 
 ## 取得方法
 
-マッチメイキング成立時に、ホストマシンから全クライアントに送信されます。
+マッチング成立時にホストから全クライアントへ送信されます。メモリの参照、セーブデータの復号、または`BroadcastEventProtocol`の[`OnlineCoopSetting`](/packet/index.html#online-coop-setting)パケットの解析で取得できます。
 
-`Regular`や`BigRun`にはホストが生成する経路があります。`Private`ではシナリオの`RandomSeedAry`を使う経路もあります。待機中に送られる`RandomSeedAry`と、開始前に送られる`GameSeed`は別の値として確認します。
+`Regular`や`BigRun`ではホストが生成し、`Private`ではシナリオの`RandomSeedAry`を使う経路もあります。待機中に送られる`RandomSeedAry`と、WAVE開始前に送られる`GameSeed`は別の値です。
 
-メモリの中身を読み込むか、セーブデータを復号するか、`BroadcastEventProtocol:OnlineCoopSetting`のパケットを解析することで`GameSeed`の値を取得できます。
-
-`CoopSeqRoundFinishEvent`の`subtype=1`は共有乱数状態を運び、受信側はその値を共有状態に反映します。通常のWAVE 1/2/3では、送信側が直前の共有状態をそれぞれ5/6/7回進めて通知する経路があります。共有状態が`OnlineCoopSetting.GameSeed`で初期化され、各終了通知が`subtype=1`として適用され、その間にほかの更新がなければ、通知値は累積5/11/18回進めた状態に対応します。この対応はラウンドの共有状態について確認したもので、ブキ・スペシャル抽選に使われた実効シーン値は別途照合が必要です。
+`CoopSeqRoundFinishEvent`（`subtype=1`）は共有乱数状態を運び、受信側はその値を共有状態に反映します。通常のWAVE 1/2/3では、送信側が直前の共有状態をそれぞれ5/6/7回進めて通知します。共有状態が`OnlineCoopSetting.GameSeed`で初期化され、各終了通知がそのまま適用されれば、通知値は累積5/11/18回進めた状態に対応します。なお、ブキ・スペシャル抽選に使われたシーンの実効値は別途照合が必要です。
 
 ## イベントと潮位の計算
 
-GameSeedから[Regularステージ](/stage/index.html#regular-stages)のイベントと潮位を計算します。ビッグラン専用のステージでは発生しないイベントと潮位の組み合わせがあるため、このコードで先読みすることはできません。
+`GameSeed`から[Regularステージ](/stage/index.html#regular-stages)のイベントと潮位を計算します。Big Runステージでは発生しないイベントと潮位の組み合わせがあるため、条件が異なります。
 
 ```rust
 use ocean_calc::{SeedWords, derive};

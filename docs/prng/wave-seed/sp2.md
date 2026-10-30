@@ -5,11 +5,11 @@ description: Splatoon 2のWaveSeedの作り方と用途
 
 # Splatoon 2の`WaveSeed`
 
-`WaveSeed`はWAVEごとのPRNGの初期値となる32ビット整数です。そのPRNGでシャケの湧き方向とオオモノシャケの種類を決めます。
+`WaveSeed`は、WAVEごとのPRNGを初期化する32ビット整数です。このPRNGでシャケの湧き方向とオオモノシャケの種類を決定します。
 
 ## 計算方法
 
-次のRustコードはSP2の`WaveSeed`を計算します。WAVE 1の`WaveSeed`が`GameSeed`になっているのは恐らく実装ミスです。
+`GameSeed`から各WAVEの`WaveSeed`を計算するコードです。WAVE 1の`WaveSeed`が`GameSeed`そのものになるのは、おそらく実装ミスです。
 
 ```rust
 fn init_state(mut value: u32) -> [u32; 4] {

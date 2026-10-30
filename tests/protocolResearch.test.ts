@@ -147,3 +147,57 @@ test('all player layouts expose two direction-and-length vectors before the dire
     }
   }
 })
+
+test('PlayerDamage and PlayerArmor remaining keep separate native bit cuts across captured player layouts', () => {
+  for (const [views, origin] of [
+    [packetExamples.playerNetState.variants, 280],
+    [packetExamples.playerState.variants, 280],
+    [packetExamples.sequence.variants, 355],
+  ] as const) {
+    for (const view of views) {
+      const region = view.fields.filter(f => f.startBit >= origin + 184 && f.endBit <= origin + 280)
+      expect(region.map(f => [f.label, f.startBit - origin, f.endBit - origin])).toEqual([
+        ['Unknown', 184, 200], ['PlayerDamage Remaining', 200, 210],
+        ['PlayerArmor Remaining', 210, 223], ['Unknown', 223, 280],
+      ])
+      expect(region.reduce((n, f) => n + f.endBit - f.startBit, 0)).toBe(96)
+      const remaining = region[1]!
+      expect(fieldValue(view.bytes, remaining)).toBe(1000n)
+      expect(fieldValue(view.bytes, remaining)).toBe(BigInt(bits(view.bytes, origin + 200, 10)))
+      const armor = region[2]!
+      expect(fieldValue(view.bytes, armor)).toBe(0n)
+      expect(fieldValue(view.bytes, armor)).toBe(BigInt(bits(view.bytes, origin + 210, 13)))
+      expect(view.fields.find(f => f.label === 'Direction Float Raw')?.endBit).toBe(origin + 184)
+      expect(view.fields.find(f => f.label === 'PlayerStepPaint State')?.startBit).toBe(origin + 280)
+
+      // A temporary copy isolates the field's first/last bits from its neighbors.
+      const edited = Uint8Array.from(view.bytes)
+      const setBit = (relative: number, on: boolean) => {
+        const bit = origin + relative, mask = 1 << (bit & 7)
+        edited[bit >> 3] = (edited[bit >> 3]! & ~mask) | (on ? mask : 0)
+      }
+      for (let bit = 200; bit < 210; bit++) setBit(bit, false)
+      setBit(199, true); setBit(210, true)
+      expect(fieldValue(edited, remaining)).toBe(0n)
+      setBit(200, true)
+      expect(fieldValue(edited, remaining)).toBe(1n)
+      setBit(209, true)
+      expect(fieldValue(edited, remaining)).toBe(513n)
+      for (let bit = 200; bit < 210; bit++) setBit(bit, true)
+      expect(fieldValue(edited, remaining)).toBe(1023n)
+      expect(fieldValue(view.bytes, remaining)).toBe(1000n)
+
+      // The thirteen-bit armor scalar must exclude its damage and state neighbors.
+      for (let bit = 210; bit < 223; bit++) setBit(bit, false)
+      setBit(209, true); setBit(223, true)
+      expect(fieldValue(edited, armor)).toBe(0n)
+      setBit(210, true)
+      expect(fieldValue(edited, armor)).toBe(1n)
+      setBit(222, true)
+      expect(fieldValue(edited, armor)).toBe(4097n)
+      for (let bit = 210; bit < 223; bit++) setBit(bit, true)
+      expect(fieldValue(edited, armor)).toBe(8191n)
+      expect(fieldValue(view.bytes, armor)).toBe(0n)
+    }
+  }
+})
